@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 require 'natto'
-require 'pry'
 
 class PatternMatchProgress
   attr_reader :rule_pos, :rule, :default_rule, :sentences
