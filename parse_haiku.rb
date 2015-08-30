@@ -61,7 +61,6 @@ class Haiku
     pos = 0
     sentence = ""
     rule = make_rule
-    r = make_rule
     i = 0
     progress = nil
     while(i < tokens.length)
@@ -83,29 +82,26 @@ class Haiku
         end
         pos = 0
         sentence = ""
-        r = make_rule
         progress = nil
         next
       end
-      if r[pos] == rule[pos] && !isWord(features)
+      if progress && progress.rule[pos] == rule[pos] && !isWord(features)
         # rewind_to(start + 1)
         i = progress.match_start + 1
         pos = 0
         sentence = ""
-        r = make_rule
         progress = nil
         next
       end
 
-      if r[pos] == rule[pos] && pos == 0
+      if progress && progress.rule[pos] == rule[pos] && pos == 0
         raise 'guard 1' if progress
       end
 
-      if r[pos] == rule[pos] && pos == 0
+      unless progress
         progress = PatternMatchProgress.progress_start(i - 1, i)
       end
       n = count_char(y)
-      r[pos] -= n
       sentence += token.surface
 
       progress = PatternMatchProgress.new(
@@ -116,11 +112,7 @@ class Haiku
         raise "guard 2: #{pos}, #{progress.rule_pos}"
       end
 
-      if r[pos] != progress.rule[progress.rule_pos]
-        raise "guard 2.1: #{r.inspect}, #{progress.rule.inspect}"
-      end
-
-      if r[pos] == 0
+      if progress.rule[pos] == 0
         pos += 1
 
         progress = PatternMatchProgress.new(
@@ -131,7 +123,7 @@ class Haiku
           raise "guard 2.5"
         end
 
-        if pos >= r.length
+        if pos >= progress.rule.length
           if progress.sentence != sentence
             raise "guard 3: '#{progress.sentence}', '#{sentence}'"
           end
@@ -140,7 +132,6 @@ class Haiku
           yield sentence if block
           pos = 0
           sentence = ""
-          r = make_rule
           progress = nil
           next
         end
@@ -148,11 +139,10 @@ class Haiku
         progress = PatternMatchProgress.new(
           progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + ' ',
           progress.rule)
-      elsif r[pos] < 0
+      elsif progress.rule[pos] < 0
         i = progress.match_start + 1
         pos = 0
         sentence = ""
-        r = make_rule
         progress = nil
       end
     end
