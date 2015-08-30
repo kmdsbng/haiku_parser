@@ -97,15 +97,7 @@ class Haiku
       if progress.rule[progress.rule_pos] == rule[progress.rule_pos] && !isWord(features)
         return nil
       end
-
-      #unless progress
-      #  progress = PatternMatchProgress.progress_start(i, i)
-      #end
       n = count_char(y)
-
-      #progress = PatternMatchProgress.new(
-      #  progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + token.surface,
-      #  progress.rule.map.with_index {|part, m| m == progress.rule_pos ? part - n : part})
 
       progress = progress.update_sentence_and_rule(
         progress.sentence + token.surface,
