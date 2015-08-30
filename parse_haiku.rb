@@ -13,12 +13,22 @@ class PatternMatchProgress
     @rule = rule
   end
 
+  ### ClassMethods
   def self.progress_start(match_start, token_pos)
     PatternMatchProgress.new(match_start, token_pos, 0, "", make_rule)
   end
 
   def self.make_rule
     [5, 7, 5].dup
+  end
+
+  ### InstanceMethods
+  def update_token_pos(new_token_pos)
+    PatternMatchProgress.new(self.match_start, new_token_pos, self.rule_pos, self.sentence, self.rule)
+  end
+
+  def update_sentence_and_rule(new_sentence, new_rule)
+    PatternMatchProgress.new(self.match_start, self.token_pos, self.rule_pos, new_sentence, new_rule)
   end
 end
 
@@ -74,9 +84,7 @@ class Haiku
     progress = PatternMatchProgress.progress_start(match_start, match_start)
     (match_start...tokens.length).each do |i|
       token = tokens[i]
-      progress = PatternMatchProgress.new(
-        progress.match_start, i, progress.rule_pos, progress.sentence,
-        progress.rule) if progress
+      progress = progress.update_token_pos(i)
 
       features = token.feature.split(',')
       y = features.last
@@ -90,13 +98,17 @@ class Haiku
         return nil
       end
 
-      unless progress
-        progress = PatternMatchProgress.progress_start(i, i)
-      end
+      #unless progress
+      #  progress = PatternMatchProgress.progress_start(i, i)
+      #end
       n = count_char(y)
 
-      progress = PatternMatchProgress.new(
-        progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + token.surface,
+      #progress = PatternMatchProgress.new(
+      #  progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + token.surface,
+      #  progress.rule.map.with_index {|part, m| m == progress.rule_pos ? part - n : part})
+
+      progress = progress.update_sentence_and_rule(
+        progress.sentence + token.surface,
         progress.rule.map.with_index {|part, m| m == progress.rule_pos ? part - n : part})
 
       if progress.rule[progress.rule_pos] == 0
