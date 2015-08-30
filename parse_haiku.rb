@@ -58,7 +58,6 @@ class Haiku
     nm = Natto::MeCab.new
     body = @body.gsub(reIgnoreText, '')
     tokens = nm.enum_parse(body).to_a
-    sentence = ""
     rule = make_rule
     i = 0
     progress = nil
@@ -79,14 +78,11 @@ class Haiku
         if y == '、'
           next
         end
-        sentence = ""
         progress = nil
         next
       end
       if progress && progress.rule[progress.rule_pos] == rule[progress.rule_pos] && !isWord(features)
-        # rewind_to(start + 1)
         i = progress.match_start + 1
-        sentence = ""
         progress = nil
         next
       end
@@ -95,7 +91,6 @@ class Haiku
         progress = PatternMatchProgress.progress_start(i - 1, i)
       end
       n = count_char(y)
-      sentence += token.surface
 
       progress = PatternMatchProgress.new(
         progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + token.surface,
@@ -107,23 +102,16 @@ class Haiku
           progress.rule)
 
         if progress.rule_pos >= progress.rule.length
-          if progress.sentence != sentence
-            raise "guard 3: '#{progress.sentence}', '#{sentence}'"
-          end
-
-          ret << sentence
-          yield sentence if block
-          sentence = ""
+          ret << progress.sentence
+          yield progress.sentence if block
           progress = nil
           next
         end
-        sentence += ' '
         progress = PatternMatchProgress.new(
           progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + ' ',
           progress.rule)
       elsif progress.rule[progress.rule_pos] < 0
         i = progress.match_start + 1
-        sentence = ""
         progress = nil
       end
     end
