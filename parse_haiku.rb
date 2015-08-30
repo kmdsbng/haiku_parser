@@ -3,34 +3,56 @@ require 'natto'
 require 'pry'
 
 class PatternMatchProgress
-  attr_reader :rule_pos, :sentence, :rule
+  attr_reader :rule_pos, :rule, :default_rule, :sentences
 
-  def initialize(rule_pos, sentence, rule)
+  def initialize(rule_pos, sentences, rule, default_rule)
     @rule_pos = rule_pos
-    @sentence = sentence
+    @sentences = sentences
     @rule = rule
+    @default_rule = default_rule
   end
 
   ### ClassMethods
-  def self.progress_start
-    PatternMatchProgress.new(0, "", make_rule)
-  end
-
   def self.make_rule
     [5, 7, 5].dup
   end
 
+  ### FactoryMethods
+  def self.progress_start
+    PatternMatchProgress.new(0, [''], make_rule, make_rule)
+  end
+
+  def add_sentence(new_sentence, char_count)
+    PatternMatchProgress.new(
+      self.rule_pos,
+      self.sentences[0..-2] + [self.sentences[-1] + new_sentence],
+      self.rule.map.with_index {|part, m| m == self.rule_pos ? part - char_count : part},
+      self.default_rule)
+  end
+
+  def mark_word_break
+    PatternMatchProgress.new(self.rule_pos + 1, self.sentences + [''], self.rule, self.default_rule)
+  end
+
   ### InstanceMethods
-  def update_sentence_and_rule(new_sentence, new_rule)
-    PatternMatchProgress.new(self.rule_pos, new_sentence, new_rule)
+  def word_start?
+    self.rule[self.rule_pos] == self.default_rule[self.rule_pos]
   end
 
-  def update_rule_pos(new_rule_pos)
-    PatternMatchProgress.new(new_rule_pos, self.sentence, self.rule)
+  def matched?
+    self.rule_pos >= self.rule.length
   end
 
-  def update_sentence(new_sentence)
-    PatternMatchProgress.new(self.rule_pos, new_sentence, self.rule)
+  def sentence
+    self.sentences.reject(&:empty?).join(' ')
+  end
+
+  def word_length_matched?
+    self.rule[self.rule_pos] == 0
+  end
+
+  def word_length_over?
+    self.rule[self.rule_pos] < 0
   end
 end
 
@@ -55,7 +77,7 @@ class Haiku
     [5, 7, 5].dup
   end
 
-  def isWord(features)
+  def jiritu_token?(features)
     ["名詞", "動詞", "形容詞", "形容動詞", "副詞", "連体詞", "接続詞", "感動詞", "接頭詞", "フィラー"].include?(features[0]) &&
       features[1] != '非自立' &&
       features[1] != '接尾'
@@ -84,7 +106,6 @@ class Haiku
   #
   # retval: matched sentence
   def try_to_match(tokens, match_start)
-    rule = make_rule
     progress = PatternMatchProgress.progress_start
     (match_start...tokens.length).each do |i|
       token = tokens[i]
@@ -96,25 +117,18 @@ class Haiku
         end
         return nil
       end
-      if progress.rule[progress.rule_pos] == rule[progress.rule_pos] && !isWord(features)
+      if progress.word_start? && !jiritu_token?(features)
         return nil
       end
       n = count_char(y)
+      progress = progress.add_sentence(token.surface, n)
 
-      progress = progress.update_sentence_and_rule(
-        progress.sentence + token.surface,
-        progress.rule.map.with_index {|part, m| m == progress.rule_pos ? part - n : part})
-
-      if progress.rule[progress.rule_pos] == 0
-        progress = progress.update_rule_pos(progress.rule_pos + 1)
-
-        if progress.rule_pos >= progress.rule.length
-          return progress.sentence
-        end
-        progress = progress.update_sentence(progress.sentence + ' ')
-      elsif progress.rule[progress.rule_pos] < 0
+      if progress.word_length_matched?
+        progress = progress.mark_word_break
+      elsif progress.word_length_over?
         return nil
       end
+      return progress.sentence if progress.matched?
     end
     nil
   end
