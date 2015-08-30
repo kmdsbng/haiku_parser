@@ -71,18 +71,12 @@ class Haiku
   # retval: matched sentence
   def try_to_match(tokens, match_start)
     rule = make_rule
-    i = match_start
     progress = PatternMatchProgress.progress_start(match_start, match_start)
-    while(i < tokens.length)
+    (match_start...tokens.length).each do |i|
       token = tokens[i]
-      i += 1
       progress = PatternMatchProgress.new(
-        progress.match_start, progress.token_pos + 1, progress.rule_pos, progress.sentence,
+        progress.match_start, i, progress.rule_pos, progress.sentence,
         progress.rule) if progress
-
-      if progress && i != progress.token_pos
-        raise "guard 0.1: #{i}, #{progress.token_pos}"
-      end
 
       features = token.feature.split(',')
       y = features.last
@@ -90,17 +84,14 @@ class Haiku
         if y == '、'
           next
         end
-        progress = nil
         return nil
       end
       if progress.rule[progress.rule_pos] == rule[progress.rule_pos] && !isWord(features)
-        i = progress.match_start + 1
-        progress = nil
         return nil
       end
 
       unless progress
-        progress = PatternMatchProgress.progress_start(i - 1, i)
+        progress = PatternMatchProgress.progress_start(i, i)
       end
       n = count_char(y)
 
@@ -120,8 +111,6 @@ class Haiku
           progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + ' ',
           progress.rule)
       elsif progress.rule[progress.rule_pos] < 0
-        i = progress.match_start + 1
-        progress = nil
         return nil
       end
     end
