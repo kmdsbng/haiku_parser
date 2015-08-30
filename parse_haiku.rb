@@ -3,19 +3,17 @@ require 'natto'
 require 'pry'
 
 class PatternMatchProgress
-  attr_reader :match_start, :token_pos, :rule_pos, :sentence, :rule
+  attr_reader :rule_pos, :sentence, :rule
 
-  def initialize(match_start, token_pos, rule_pos, sentence, rule)
-    @match_start = match_start
-    @token_pos = token_pos
+  def initialize(rule_pos, sentence, rule)
     @rule_pos = rule_pos
     @sentence = sentence
     @rule = rule
   end
 
   ### ClassMethods
-  def self.progress_start(match_start, token_pos)
-    PatternMatchProgress.new(match_start, token_pos, 0, "", make_rule)
+  def self.progress_start
+    PatternMatchProgress.new(0, "", make_rule)
   end
 
   def self.make_rule
@@ -23,12 +21,16 @@ class PatternMatchProgress
   end
 
   ### InstanceMethods
-  def update_token_pos(new_token_pos)
-    PatternMatchProgress.new(self.match_start, new_token_pos, self.rule_pos, self.sentence, self.rule)
+  def update_sentence_and_rule(new_sentence, new_rule)
+    PatternMatchProgress.new(self.rule_pos, new_sentence, new_rule)
   end
 
-  def update_sentence_and_rule(new_sentence, new_rule)
-    PatternMatchProgress.new(self.match_start, self.token_pos, self.rule_pos, new_sentence, new_rule)
+  def update_rule_pos(new_rule_pos)
+    PatternMatchProgress.new(new_rule_pos, self.sentence, self.rule)
+  end
+
+  def update_sentence(new_sentence)
+    PatternMatchProgress.new(self.rule_pos, new_sentence, self.rule)
   end
 end
 
@@ -78,14 +80,14 @@ class Haiku
     ret
   end
 
+  # check sentence from tokens[match_start] match rule.
+  #
   # retval: matched sentence
   def try_to_match(tokens, match_start)
     rule = make_rule
-    progress = PatternMatchProgress.progress_start(match_start, match_start)
+    progress = PatternMatchProgress.progress_start
     (match_start...tokens.length).each do |i|
       token = tokens[i]
-      progress = progress.update_token_pos(i)
-
       features = token.feature.split(',')
       y = features.last
       if reWord !~ y
@@ -104,16 +106,12 @@ class Haiku
         progress.rule.map.with_index {|part, m| m == progress.rule_pos ? part - n : part})
 
       if progress.rule[progress.rule_pos] == 0
-        progress = PatternMatchProgress.new(
-          progress.match_start, progress.token_pos, progress.rule_pos + 1, progress.sentence,
-          progress.rule)
+        progress = progress.update_rule_pos(progress.rule_pos + 1)
 
         if progress.rule_pos >= progress.rule.length
           return progress.sentence
         end
-        progress = PatternMatchProgress.new(
-          progress.match_start, progress.token_pos, progress.rule_pos, progress.sentence + ' ',
-          progress.rule)
+        progress = progress.update_sentence(progress.sentence + ' ')
       elsif progress.rule[progress.rule_pos] < 0
         return nil
       end
